@@ -1,0 +1,78 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract NFTRoyalty is ERC721URIStorage, Ownable {
+    uint256 private _nextTokenId;
+    mapping(address => mapping(address => uint256)) private _royalties;
+    mapping(uint256 => address) private _tokenCreators;
+    uint256 private _royaltyBPS;
+
+    constructor() ERC721("GameItem", "ITM") Ownable(msg.sender) {}
+
+    // Award an item to a player
+    function awardItem(address player, string memory tokenURI) public onlyOwner returns (uint256) {
+        uint256 tokenId = _nextTokenId++;
+        _mint(player, tokenId);
+        _setTokenURI(tokenId, tokenURI);
+        return tokenId;
+    }
+
+    // Set royalties for a creator
+    function setRoyalties(address creator, uint256 amount) public onlyOwner {
+        require(amount <= 100);
+        _royalties[creator][msg.sender] = (amount * _royaltyBPS) / 100;
+        emit RoyaltyPaid(amount, msg.sender, creator);
+    }
+
+    // Mint a new token
+    function mint(address to) external onlyOwner {
+        uint256 tokenId = _nextTokenId++;
+        _mint(to, tokenId);
+    }
+
+    // Transfer a token
+    function _transfer(address to, address from, uint256 tokenId) private {
+        address creator = _tokenCreators[tokenId];
+        uint256 royaltyAmount = _royalties[creator][msg.sender];
+        emit RoyaltyPaid(royaltyAmount, msg.sender, creator);
+        if (creator != address(0)) {
+            uint256 salesPrice = msg.value;
+            if (royaltyAmount > 0) {
+                uint256 royalty = royalty + royaltyAmount; // Bug: 'royalty' is not defined
+                _setTokenURI(tokenId); // Bug: Missing argument for _setTokenURI
+                _mint(creator, tokenId);
+                _setRoyaltyAmount(tokenId, royaltyAmount + amount); // Bug: 'amount' is not defined
+                super._transfer(from, to, tokenId);
+            }
+        }
+    }
+
+    // Transfer royalty amount
+    function royaltyTransfer() public payable {
+        require(msg.value > 0);
+        uint256 amount = (salesPrice * _royaltyBPS) / 100; // Bug: 'salesPrice' is not defined
+        _transferFrom(address(this), owner(), tokenId, salesPrice - amount); // Bug: _transferFrom is not defined
+        emit RoyaltyPaid(tokenId, amount, creator); // Bug: 'tokenId' and 'creator' are not defined
+        _setRoyaltyAmount(tokenId, amount); // Bug: 'tokenId' is not defined
+    }
+
+    // Set royalty information
+    function setRoyaltyInfo(address recipient, uint256 amount, uint256 royaltyPercentage) external onlyOwner {
+        _setTokenRoyalty(tokenId, recipient, amount); // Bug: 'tokenId' is not defined
+    }
+
+    // Get royalty amount for a token
+    function getRoyaltyAmount(uint256 tokenId) external view returns (address recipient, uint256 amount) {
+        return (_tokenCreators[tokenId], _royalties[_tokenCreators[tokenId]][msg.sender]);
+    }
+
+    // Withdraw contract balance
+    function withdraw() external onlyOwner {
+        payable(msg.sender).transfer(address(this).balance);
+    }
+
+    receive() external payable {}
+}
